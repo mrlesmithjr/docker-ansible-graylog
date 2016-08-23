@@ -1,0 +1,81 @@
+---
+- hosts: localhost
+  connection: local
+  become: true
+  vars:
+    - gosu_ver: '1.9'
+    - graylog_dl_file: 'graylog-{{ graylog_ver }}.tgz'
+    - graylog_dl_url: 'https://packages.graylog2.org/releases/graylog'
+    - graylog_ver: '2.0.3'
+  tasks:
+    - name: Installing apt-transport-https
+      apt:
+        name: "apt-transport-https"
+        state: "present"
+
+    - name: Installing ca-certificates
+      apt:
+        name: "ca-certificates"
+        state: "latest"
+
+    - name: Installing dumb-init
+      apt:
+        deb: "https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64.deb"
+
+    - name: Installing gosu
+      get_url:
+        url: "https://github.com/tianon/gosu/releases/download/{{ gosu_ver }}/gosu-amd64"
+        dest: "/usr/local/bin/gosu"
+        mode: 0755
+
+    - name: Installing JRE
+      apt:
+        name: "openjdk-8-jre-headless"
+        state: "present"
+
+    - name: Creating Graylog Group
+      group:
+        name: "graylog"
+        state: "present"
+
+    - name: Creating Graylog User
+      user:
+        name: "graylog"
+        uid: '1100'
+
+    - name: Downloading {{graylog_dl_url }}/{{ graylog_dl_file }}
+      get_url:
+        url: "{{graylog_dl_url }}/{{ graylog_dl_file }}"
+        dest: "/usr/share/"
+
+    - name: Extracting {{graylog_dl_url }}/{{ graylog_dl_file }}
+      unarchive:
+        src: "/usr/share/{{ graylog_dl_file }}"
+        dest: "/usr/share/"
+
+    - name: Moving /usr/share/graylog-{{ graylog_ver }} to /usr/share/graylog
+      command: "mv /usr/share/graylog-{{ graylog_ver }} /usr/share/graylog"
+
+    - name: Setting Permissions On /usr/share/graylog
+      file:
+        path: "/usr/share/graylog"
+        state: "directory"
+        recurse: yes
+        owner: "graylog"
+        group: "graylog"
+
+    - name: Removing /usr/share/{{ graylog_dl_file }}
+      file:
+        path: "/usr/share/{{ graylog_dl_file }}"
+        state: "absent"
+
+    - name: Creating Graylog Folders
+      file:
+        path: "/usr/share/graylog/{{ item }}"
+        state: "directory"
+        owner: "graylog"
+        group: "graylog"
+      with_items:
+        - 'data/journal'
+        - 'data/log'
+        - 'data/config'
